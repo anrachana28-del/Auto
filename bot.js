@@ -6,10 +6,9 @@ const TOKEN      = process.env.TOKEN;        // Telegram Bot Token
 const PORT       = process.env.PORT || 3000; // Render provides PORT
 const FB_PAGE    = process.env.FB_PAGE || 'https://www.facebook.com/YourPage';
 const ADMIN_LINK = process.env.ADMIN_LINK || 'https://t.me/YourAdminUsername';
-const ADMIN_ID   = process.env.ADMIN_ID; // numeric Telegram ID of admin
 
-if (!TOKEN || !ADMIN_ID) {
-  console.error('❌ TOKEN or ADMIN_ID is missing');
+if (!TOKEN) {
+  console.error('❌ TOKEN is missing');
   process.exit(1);
 }
 
@@ -24,7 +23,7 @@ const bot = new TelegramBot(TOKEN, { polling: true });
 // Keywords trigger
 const KEYWORDS = ['hi', 'hello', 'hey'];
 
-// Inline keyboard buttons (Facebook + Admin)
+// Inline keyboard buttons (Facebook + Admin link only)
 const BUTTONS = {
   reply_markup: {
     inline_keyboard: [
@@ -48,29 +47,16 @@ bot.on('message', async (msg) => {
   if (!KEYWORDS.includes(text)) return;
 
   try {
-    // ---- Reply User ----
+    // Reply User with buttons
     await bot.sendMessage(
       userId,
       `សួស្តី! ${username}\nយើងខ្ញុំនឹងតបសារឆាប់ៗនេះ សូមអធ្យាស្រ័យចំពោះការឆ្លើយយឺត។\nI will reply shortly. Thank you 💙🙏`,
       BUTTONS
     );
-    console.log(`✅ Replied to user ${username} (${userId})`);
 
-    // ---- Notify Admin ----
-    await bot.sendMessage(
-      ADMIN_ID,
-      `📩 New message from ${username} (${userId}):\n"${msg.text}"`,
-      BUTTONS
-    );
-    console.log(`✅ Notified Admin about ${username}`);
+    console.log(`✅ Replied to user ${username} (${userId})`);
 
   } catch (err) {
     console.error('❌ Error sending message:', err.message);
   }
 });
-
-// ================== OPTIONAL: DAILY RESET (unused, you can remove if replying always) ==================
-// setInterval(() => {
-//   repliedUsers.clear();
-//   console.log('🔄 Daily reset replied users');
-// }, 24 * 60 * 60 * 1000);
