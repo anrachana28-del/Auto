@@ -2,63 +2,75 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // ================== CONFIG ==================
-const TOKEN = process.env.TOKEN;        // Telegram Bot Token
-const PORT  = process.env.PORT || 3000; // Render provides PORT
+const TOKEN      = process.env.TOKEN;        // Telegram Bot Token
+const PORT       = process.env.PORT || 3000; // Render provides PORT
+const FB_PAGE    = process.env.FB_PAGE || 'https://www.facebook.com/YourPage';
+const ADMIN_LINK = process.env.ADMIN_LINK || 'https://t.me/YourAdminUsername';
+const ADMIN_ID   = process.env.ADMIN_ID; // numeric Telegram ID of admin
 
-if (!TOKEN) {
-  console.error('❌ TOKEN is missing');
+if (!TOKEN || !ADMIN_ID) {
+  console.error('❌ TOKEN or ADMIN_ID is missing');
   process.exit(1);
 }
 
 // ================== EXPRESS (Health Check) ==================
 const app = express();
-
-app.get('/', (req, res) => {
-  res.send('✅ Telegram Bot is running');
-});
-
-app.listen(PORT, () => {
-  console.log(`🌐 Web server running on port ${PORT}`);
-});
+app.get('/', (req, res) => res.send('✅ Telegram Bot is running'));
+app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
 
 // ================== TELEGRAM BOT ==================
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// Store users who already received reply
-const repliedUsers = new Set();
-
 // Keywords trigger
 const KEYWORDS = ['hi', 'hello', 'hey'];
 
+// Inline keyboard buttons (Facebook + Admin)
+const BUTTONS = {
+  reply_markup: {
+    inline_keyboard: [
+      [
+        { text: 'Facebook Page', url: FB_PAGE },
+        { text: 'Admin', url: ADMIN_LINK }
+      ]
+    ]
+  }
+};
+
+// ================== MESSAGE HANDLER ==================
 bot.on('message', async (msg) => {
-  const text = msg.text?.toLowerCase();
+  const text     = msg.text?.toLowerCase();
   if (!text) return;
 
-  const userId = msg.from.id;
-
-  // Reply only once per user
-  if (repliedUsers.has(userId)) return;
+  const userId   = msg.from.id;
+  const username = msg.from.username ? '@' + msg.from.username : msg.from.first_name;
 
   // Check keyword
   if (!KEYWORDS.includes(text)) return;
 
   try {
-    repliedUsers.add(userId);
-
-    // Reply PRIVATE message (even if message comes from group)
+    // ---- Reply User ----
     await bot.sendMessage(
       userId,
-      `Hi 👋 ${msg.from.first_name}!\nThanks for your message.`
+      `សួស្តី! ${username}\nយើងខ្ញុំនឹងតបសារឆាប់ៗនេះ សូមអធ្យាស្រ័យចំពោះការឆ្លើយយឺត។\nI will reply shortly. Thank you 💙🙏`,
+      BUTTONS
     );
+    console.log(`✅ Replied to user ${username} (${userId})`);
 
-    console.log(`✅ Replied once to user ${userId}`);
+    // ---- Notify Admin ----
+    await bot.sendMessage(
+      ADMIN_ID,
+      `📩 New message from ${username} (${userId}):\n"${msg.text}"`,
+      BUTTONS
+    );
+    console.log(`✅ Notified Admin about ${username}`);
+
   } catch (err) {
-    console.error('❌ Cannot send PM (user not started bot yet):', err.message);
+    console.error('❌ Error sending message:', err.message);
   }
 });
 
-// ================== OPTIONAL: DAILY RESET ==================
-setInterval(() => {
-  repliedUsers.clear();
-  console.log('🔄 Daily reset replied users');
-}, 24 * 60 * 60 * 1000);
+// ================== OPTIONAL: DAILY RESET (unused, you can remove if replying always) ==================
+// setInterval(() => {
+//   repliedUsers.clear();
+//   console.log('🔄 Daily reset replied users');
+// }, 24 * 60 * 60 * 1000);
