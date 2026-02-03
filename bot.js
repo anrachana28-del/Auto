@@ -2,10 +2,8 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // ================== CONFIG ==================
-const TOKEN      = process.env.TOKEN;
-const PORT       = process.env.PORT || 3000;
-const FB_PAGE    = process.env.FB_PAGE || 'https://www.facebook.com/YourPage';
-const ADMIN_LINK = process.env.ADMIN_LINK || 'https://t.me/YourAdminUsername';
+const TOKEN = process.env.TOKEN;        // Telegram Bot Token
+const PORT  = process.env.PORT || 3000; // Render provides PORT
 
 if (!TOKEN) {
   console.error('❌ TOKEN is missing');
@@ -26,41 +24,41 @@ app.listen(PORT, () => {
 // ================== TELEGRAM BOT ==================
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// Keywords to trigger reply
+// Store users who already received reply
+const repliedUsers = new Set();
+
+// Keywords trigger
 const KEYWORDS = ['hi', 'hello', 'hey'];
 
-// Inline keyboard buttons (Facebook + Admin)
-const BUTTONS = {
-  reply_markup: {
-    inline_keyboard: [
-      [
-        { text: 'Facebook Page', url: FB_PAGE },
-        { text: 'Admin', url: ADMIN_LINK }
-      ]
-    ]
-  }
-};
-
-// ================== MESSAGE HANDLER ==================
 bot.on('message', async (msg) => {
   const text = msg.text?.toLowerCase();
   if (!text) return;
 
-  const userId   = msg.from.id;
-  const username = msg.from.username ? '@' + msg.from.username : msg.from.first_name;
+  const userId = msg.from.id;
+
+  // Reply only once per user
+  if (repliedUsers.has(userId)) return;
 
   // Check keyword
   if (!KEYWORDS.includes(text)) return;
 
   try {
+    repliedUsers.add(userId);
+
+    // Reply PRIVATE message (even if message comes from group)
     await bot.sendMessage(
       userId,
-      `សួស្តី! ${username}\nយើងខ្ញុំនឹងតបសារឆាប់ៗនេះ សូមអធ្យាស្រ័យចំពោះការឆ្លើយយឺត។\nI will reply shortly. Thank you 💙🙏`,
-      BUTTONS
+      `Hi 👋 ${msg.from.first_name}!\nThanks for your message.`
     );
 
-    console.log(`✅ Replied to ${username} (${userId})`);
+    console.log(`✅ Replied once to user ${userId}`);
   } catch (err) {
     console.error('❌ Cannot send PM (user not started bot yet):', err.message);
   }
 });
+
+// ================== OPTIONAL: DAILY RESET ==================
+setInterval(() => {
+  repliedUsers.clear();
+  console.log('🔄 Daily reset replied users');
+}, 24 * 60 * 60 * 1000);
