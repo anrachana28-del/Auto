@@ -1,62 +1,75 @@
-const express = require('express');
+// ======================
+// Telegram Bot with Buttons & Env Variables
+// ======================
+
 const TelegramBot = require('node-telegram-bot-api');
 
-// ================== CONFIG ==================
-const TOKEN      = process.env.TOKEN;        // Telegram Bot Token
-const PORT       = process.env.PORT || 3000; // Render provides PORT
-const FB_PAGE    = process.env.FB_PAGE || 'https://www.facebook.com/YourPage';
-const ADMIN_LINK = process.env.ADMIN_LINK || 'https://t.me/YourAdminUsername';
+// ❗ Load config from environment variables
+const TOKEN = process.env.TOKEN;
+const FACEBOOK_URL = process.env.FACEBOOK_URL;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 
-if (!TOKEN) {
-  console.error('❌ TOKEN is missing');
+if (!TOKEN || !FACEBOOK_URL || !ADMIN_USERNAME) {
+  console.error('❌ Missing TOKEN, FACEBOOK_URL, or ADMIN_USERNAME in env');
   process.exit(1);
 }
 
-// ================== EXPRESS (Health Check) ==================
-const app = express();
-app.get('/', (req, res) => res.send('✅ Telegram Bot is running'));
-app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
-
-// ================== TELEGRAM BOT ==================
+// Create bot
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-// Keywords trigger
+// Users who already got a reply (session-based)
+const repliedUsers = new Set();
+
+// Keywords to trigger the bot
 const KEYWORDS = ['hi', 'hello', 'hey'];
 
-// Inline keyboard buttons (Facebook + Admin link only)
-const BUTTONS = {
-  reply_markup: {
-    inline_keyboard: [
-      [
-        { text: 'Facebook Page', url: FB_PAGE },
-        { text: 'Admin', url: ADMIN_LINK }
-      ]
-    ]
-  }
-};
-
-// ================== MESSAGE HANDLER ==================
+// Listen to messages
 bot.on('message', async (msg) => {
-  const text     = msg.text?.toLowerCase();
+  const text = msg.text?.toLowerCase();
   if (!text) return;
 
-  const userId   = msg.from.id;
-  const username = msg.from.username ? '@' + msg.from.username : msg.from.first_name;
+  // Only trigger if message contains a keyword
+  const containsKeyword = KEYWORDS.some(keyword => text.includes(keyword));
+  if (!containsKeyword) return;
 
-  // Check keyword
-  if (!KEYWORDS.includes(text)) return;
+  const userId = msg.from.id;
+
+  // Only reply once per user
+  if (repliedUsers.has(userId)) return;
+  repliedUsers.add(userId);
 
   try {
-    // Reply User with buttons
+    // Send private message with buttons
     await bot.sendMessage(
       userId,
-      `សួស្តី! ${username}\nយើងខ្ញុំនឹងតបសារឆាប់ៗនេះ សូមអធ្យាស្រ័យចំពោះការឆ្លើយយឺត។\nI will reply shortly. Thank you 💙🙏`,
-      BUTTONS
+      `Hi 👋 ${msg.from.first_name}! Here are some quick links:`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "Facebook Page 🌐", url: FACEBOOK_URL },
+              { text: "Contact Admin 👤", url: `https://t.me/${ADMIN_USERNAME}` }
+            ]
+          ]
+        }
+      }
     );
 
-    console.log(`✅ Replied to user ${username} (${userId})`);
+    console.log(`✅ Replied once to ${userId}`);
+  } catch (e) {
+    console.error('❌ PM failed:', e.message);
+  }
+});
 
-  } catch (err) {
-    console.error('❌ Error sending message:', err.message);
+// Optional: handle callback queries (if you want interactive buttons in the future)
+bot.on('callback_query', async (query) => {
+  const chatId = query.from.id;
+  const data = query.data;
+
+  // Example for future interactive buttons
+  if (data === "button_clicked") {
+    await bot.sendMessage(chatId, `You clicked the button! 🎉`);
+    // Remove the button after click
+    await bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: query.message.message_id });
   }
 });
